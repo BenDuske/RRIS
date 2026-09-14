@@ -31,7 +31,7 @@ def normalize_report(raw_input: dict) -> Event:
     # 4. Provenance tracking
     provenance = Provenance(
         origin=raw_input.get("source_type", "unknown"),
-        received_at=datetime.utcnow(),
+        received_at=datetime.now(timezone.utc),
         last_confirmed=None,
         supporting_sources=[],
         contradicting_sources=[]
@@ -41,7 +41,7 @@ def normalize_report(raw_input: dict) -> Event:
     event = Event(
         source_id=raw_input.get("source_id", "unknown"),
         source_type=raw_input.get("source_type", "manual"),
-        timestamp=raw_input.get("timestamp", datetime.utcnow()),
+        timestamp=raw_input.get("timestamp", datetime.now(timezone.utc)),
         location=location,
         raw_text=raw_text,
         parsed_fields=parsed_fields,
@@ -54,6 +54,6 @@ def normalize_report(raw_input: dict) -> Event:
 def update_provenance(event: Event, new_source: str, confirmed: bool = False):
     if confirmed:
         event.provenance.supporting_sources.append(new_source)
-        event.provenance.last_confirmed = datetime.utcnow()
+        event.provenance.last_confirmed = datetime.now(timezone.utc)
     else:
         event.provenance.contradicting_sources.append(new_source)
