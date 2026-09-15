@@ -1,0 +1,350 @@
+const mockIncidents = [
+  {
+    id: 1,
+    incident_type: "Transportation",
+    status: "active",
+    location: {
+      lat: 33.5351,
+      lng: -101.8452,
+      address: "I-27 NB near Exit 6, Lubbock, TX",
+      radius: 200,
+    },
+    priority: 94,
+    confidence: 0.78,
+    created_at: "2026-09-15T13:02:17Z",
+    updated_at: "2026-09-15T13:11:08Z",
+    events: [
+      {
+        source_id: "cad_00142",
+        source_type: "cad",
+        timestamp: "2026-09-15T13:02:17Z",
+        raw_text:
+          "Vehicle collision reported I-27 NB near Exit 6. Multiple vehicles involved. At least 2 injuries reported. Northbound lanes blocked.",
+        parsed_fields: {
+          incident_type: "Transportation",
+          injuries: 2,
+          hazards: [],
+          agencies_needed: ["EMS", "Police"],
+          severity_estimate: 7,
+          key_details: "Multi-vehicle collision, lanes blocked",
+        },
+        confidence: 0.85,
+        provenance: {
+          origin: "cad",
+          received_at: "2026-09-15T13:02:17Z",
+          last_confirmed: "2026-09-15T13:02:17Z",
+          supporting_sources: [],
+          contradicting_sources: [],
+        },
+      },
+      {
+        source_id: "txdot_i27_001",
+        source_type: "traffic",
+        timestamp: "2026-09-15T13:05:01Z",
+        raw_text:
+          "TxDOT: I-27 NB lanes closed between Exit 4 and Exit 6. Expect delays.",
+        parsed_fields: {
+          incident_type: "Transportation",
+          injuries: null,
+          hazards: [],
+          agencies_needed: [],
+          severity_estimate: 5,
+          key_details: "NB lanes closed Exit 4 to Exit 6",
+        },
+        confidence: 1.0,
+        provenance: {
+          origin: "traffic",
+          received_at: "2026-09-15T13:05:01Z",
+          last_confirmed: "2026-09-15T13:05:01Z",
+          supporting_sources: ["cad_00142"],
+          contradicting_sources: [],
+        },
+      },
+      {
+        source_id: "field_00087",
+        source_type: "manual",
+        timestamp: "2026-09-15T13:09:12Z",
+        raw_text:
+          "Field unit on scene. Fuel leak from overturned tanker. Fire hazard present. Requesting Fire Department.",
+        parsed_fields: {
+          incident_type: "HazMat",
+          injuries: 2,
+          hazards: ["fuel_leak", "fire_hazard"],
+          agencies_needed: ["Fire", "HazMat"],
+          severity_estimate: 9,
+          key_details: "Fuel leak from overturned tanker, fire hazard",
+        },
+        confidence: 0.92,
+        provenance: {
+          origin: "manual",
+          received_at: "2026-09-15T13:09:12Z",
+          last_confirmed: "2026-09-15T13:09:12Z",
+          supporting_sources: ["cad_00142", "txdot_i27_001"],
+          contradicting_sources: [],
+        },
+      },
+    ],
+    timeline: [
+      {
+        type: "created",
+        summary: "Vehicle collision reported, I-27 NB near Exit 6",
+        created_at: "2026-09-15T13:02:17Z",
+      },
+      {
+        type: "evidence",
+        summary: "Two injuries reported (source: dispatch)",
+        created_at: "2026-09-15T13:04:33Z",
+      },
+      {
+        type: "evidence",
+        summary: "Northbound lanes closed (source: TxDOT)",
+        created_at: "2026-09-15T13:05:01Z",
+      },
+      {
+        type: "escalation",
+        summary: "Fuel leak identified — overturned tanker",
+        created_at: "2026-09-15T13:09:12Z",
+      },
+      {
+        type: "escalation",
+        summary: "Fire hazard reported — FD requested",
+        created_at: "2026-09-15T13:11:08Z",
+      },
+    ],
+    priority_breakdown: {
+      life_threat: 9,
+      severity: 8,
+      hazards: 7,
+      time_sensitivity: 9,
+      resource_load: 6,
+      vulnerable_pop: 5,
+    },
+    limitations: [
+      "Casualty count unconfirmed",
+      "Building type inferred, not verified",
+      "No direct sensor data",
+    ],
+  },
+  {
+    id: 2,
+    incident_type: "Weather",
+    status: "active",
+    location: {
+      lat: 33.5779,
+      lng: -101.8552,
+      address: "Lubbock County, TX",
+      radius: 5000,
+    },
+    priority: 72,
+    confidence: 1.0,
+    created_at: "2026-09-15T12:45:00Z",
+    updated_at: "2026-09-15T13:00:00Z",
+    events: [
+      {
+        source_id: "nws_flash_flood_001",
+        source_type: "nws",
+        timestamp: "2026-09-15T12:45:00Z",
+        raw_text:
+          "Flash Flood Warning for Lubbock County until 3:00 PM CDT. Heavy rain producing 1-2 inches per hour. Low water crossings may flood.",
+        parsed_fields: {
+          incident_type: "Weather",
+          injuries: null,
+          hazards: ["flooding", "low_water_crossings"],
+          agencies_needed: [],
+          severity_estimate: 8,
+          key_details:
+            "Flash Flood Warning until 3:00 PM CDT. 1-2 in/hr rainfall.",
+        },
+        confidence: 1.0,
+        provenance: {
+          origin: "nws",
+          received_at: "2026-09-15T12:45:00Z",
+          last_confirmed: "2026-09-15T12:45:00Z",
+          supporting_sources: [],
+          contradicting_sources: [],
+        },
+      },
+    ],
+    timeline: [
+      {
+        type: "created",
+        summary: "NWS Flash Flood Warning issued for Lubbock County",
+        created_at: "2026-09-15T12:45:00Z",
+      },
+      {
+        type: "evidence",
+        summary: "Warning extended — rainfall exceeding 1.5 in/hr",
+        created_at: "2026-09-15T13:00:00Z",
+      },
+    ],
+    priority_breakdown: {
+      life_threat: 6,
+      severity: 8,
+      hazards: 7,
+      time_sensitivity: 8,
+      resource_load: 4,
+      vulnerable_pop: 6,
+    },
+    limitations: [
+      "No ground-truth flood depth data",
+      "Warning area is county-wide (coarse)",
+    ],
+  },
+  {
+    id: 3,
+    incident_type: "Fire",
+    status: "active",
+    location: {
+      lat: 33.5622,
+      lng: -101.8307,
+      address: "2400 block Ave Q, Lubbock, TX",
+      radius: 100,
+    },
+    priority: 86,
+    confidence: 0.65,
+    created_at: "2026-09-15T13:15:00Z",
+    updated_at: "2026-09-15T13:22:00Z",
+    events: [
+      {
+        source_id: "cad_00145",
+        source_type: "cad",
+        timestamp: "2026-09-15T13:15:00Z",
+        raw_text:
+          "911 call: smoke visible from 2-story residential structure, 2400 block Ave Q. Caller reports occupants may still be inside.",
+        parsed_fields: {
+          incident_type: "Fire",
+          injuries: null,
+          hazards: ["structure_fire", "possible_entrapment"],
+          agencies_needed: ["Fire", "EMS"],
+          severity_estimate: 8,
+          key_details:
+            "Smoke from 2-story residential. Possible entrapment.",
+        },
+        confidence: 0.7,
+        provenance: {
+          origin: "cad",
+          received_at: "2026-09-15T13:15:00Z",
+          last_confirmed: null,
+          supporting_sources: [],
+          contradicting_sources: [],
+        },
+      },
+      {
+        source_id: "field_00089",
+        source_type: "manual",
+        timestamp: "2026-09-15T13:22:00Z",
+        raw_text:
+          "Engine 5 on scene. Active fire second floor. Search in progress for occupants. Second alarm requested.",
+        parsed_fields: {
+          incident_type: "Fire",
+          injuries: null,
+          hazards: ["active_fire", "entrapment"],
+          agencies_needed: ["Fire", "EMS"],
+          severity_estimate: 9,
+          key_details: "Active fire 2nd floor. Search in progress. 2nd alarm.",
+        },
+        confidence: 0.95,
+        provenance: {
+          origin: "manual",
+          received_at: "2026-09-15T13:22:00Z",
+          last_confirmed: "2026-09-15T13:22:00Z",
+          supporting_sources: ["cad_00145"],
+          contradicting_sources: [],
+        },
+      },
+    ],
+    timeline: [
+      {
+        type: "created",
+        summary: "Smoke reported at 2-story residential, Ave Q",
+        created_at: "2026-09-15T13:15:00Z",
+      },
+      {
+        type: "escalation",
+        summary: "Active fire confirmed 2nd floor — search in progress",
+        created_at: "2026-09-15T13:22:00Z",
+      },
+      {
+        type: "escalation",
+        summary: "Second alarm requested",
+        created_at: "2026-09-15T13:22:00Z",
+      },
+    ],
+    priority_breakdown: {
+      life_threat: 9,
+      severity: 8,
+      hazards: 8,
+      time_sensitivity: 9,
+      resource_load: 7,
+      vulnerable_pop: 7,
+    },
+    limitations: [
+      "Occupant count unknown",
+      "Fire origin not yet determined",
+      "Single source until field confirmation",
+    ],
+  },
+  {
+    id: 4,
+    incident_type: "Medical",
+    status: "monitoring",
+    location: {
+      lat: 33.5845,
+      lng: -101.8469,
+      address: "Buddy Holly Ave & Broadway, Lubbock, TX",
+      radius: 50,
+    },
+    priority: 35,
+    confidence: 0.9,
+    created_at: "2026-09-15T12:30:00Z",
+    updated_at: "2026-09-15T12:45:00Z",
+    events: [
+      {
+        source_id: "cad_00138",
+        source_type: "cad",
+        timestamp: "2026-09-15T12:30:00Z",
+        raw_text:
+          "Medical emergency. Adult male collapsed near intersection. Conscious, breathing. EMS dispatched.",
+        parsed_fields: {
+          incident_type: "Medical",
+          injuries: 1,
+          hazards: [],
+          agencies_needed: ["EMS"],
+          severity_estimate: 4,
+          key_details: "Adult male collapsed, conscious and breathing",
+        },
+        confidence: 0.9,
+        provenance: {
+          origin: "cad",
+          received_at: "2026-09-15T12:30:00Z",
+          last_confirmed: "2026-09-15T12:45:00Z",
+          supporting_sources: [],
+          contradicting_sources: [],
+        },
+      },
+    ],
+    timeline: [
+      {
+        type: "created",
+        summary: "Medical call — adult male collapsed, conscious",
+        created_at: "2026-09-15T12:30:00Z",
+      },
+      {
+        type: "evidence",
+        summary: "EMS on scene, patient stable",
+        created_at: "2026-09-15T12:45:00Z",
+      },
+    ],
+    priority_breakdown: {
+      life_threat: 3,
+      severity: 4,
+      hazards: 1,
+      time_sensitivity: 5,
+      resource_load: 2,
+      vulnerable_pop: 3,
+    },
+    limitations: ["Single source report"],
+  },
+];
+
+export default mockIncidents;

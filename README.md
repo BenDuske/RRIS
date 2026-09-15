@@ -31,12 +31,41 @@ During emergencies, personnel receive information from 911 dispatch, field repor
 
 ```
 RRIS/
-├── Proposal/           # Project proposal (final)
+├── backend/
+│   ├── main.py                 # FastAPI app entry point
+│   ├── models.py               # Pydantic schemas (legacy location)
+│   ├── config.py               # Thresholds, weights, fusion params
+│   ├── ingestion/
+│   │   ├── models.py           # Pydantic schemas (Event, Incident, etc.)
+│   │   ├── normalizer.py       # Raw report → Event envelope
+│   │   ├── nws.py              # NWS API poller (Lubbock County)
+│   │   └── pdf_ingest.py       # PDF text extraction (stub)
+│   └── intelligence/
+│       ├── extraction.py       # Entity extraction (stub)
+│       ├── fusion.py           # Incident fusion engine (stub)
+│       ├── priority.py         # Priority scorer (stub)
+│       ├── confidence.py       # Confidence scoring (stub)
+│       └── explainability.py   # Explainability logic (stub)
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx             # Main layout (sidebar + map + detail panel)
+│   │   ├── components/
+│   │   │   ├── Dashboard.jsx   # Incident list sorted by priority
+│   │   │   ├── MapView.jsx     # Leaflet map with markers + overlays
+│   │   │   ├── ExplainPanel.jsx # Timeline, priority breakdown, sources, limitations
+│   │   │   ├── IncidentCard.jsx # Single incident summary card
+│   │   │   └── RoleFilter.jsx  # Role-based view toggle (All/Fire/EMS)
+│   │   ├── data/
+│   │   │   └── mockIncidents.js # Simulated incident data for development
+│   │   └── utils/
+│   │       └── priorityColors.js # Color tiers, labels, role filter configs
+│   └── package.json
+├── Media/                      # Screenshots and demo assets
+├── Proposal/                   # Project proposal (final)
+├── ARCHITECTURE.md             # Full system architecture document
 ├── LICENSE
 └── README.md
 ```
-
-*Structure will expand as development progresses through Phases 2–4.*
 
 ## Team
 
@@ -61,7 +90,8 @@ RRIS/
 
 ### Prerequisites
 
-- [Git](https://git-scm.com/downloads) installed
+- [Git](https://git-scm.com/downloads)
+- [Node.js](https://nodejs.org/) (v18 or later) — required for the frontend
 - A GitHub account with access to this repository
 
 ### Clone the repo
@@ -71,7 +101,7 @@ git clone https://github.com/BenDuske/RRIS.git
 cd RRIS
 ```
 
-### Stay up to date
+### Sync your local copy
 
 Before starting any work, always pull the latest changes:
 
@@ -79,7 +109,30 @@ Before starting any work, always pull the latest changes:
 git pull origin main
 ```
 
-### Basic workflow
+### Running the Frontend (UI)
+
+The frontend is a React app using Vite. To run it locally:
+
+```bash
+# 1. Navigate to the frontend directory
+cd frontend
+
+# 2. Install dependencies (only needed the first time or after package.json changes)
+npm install
+
+# 3. Start the development server
+npm run dev
+```
+
+The dashboard will open at **http://localhost:5173**. It currently runs on mock data — no backend connection needed yet.
+
+**What you'll see:**
+- Left sidebar with incident cards sorted by priority
+- Map centered on Lubbock with color-coded incident markers
+- Click any incident to view the explainability panel (timeline, priority breakdown, data sources, limitations)
+- Role filter toggle in the header (All Fields / Fire / EMS)
+
+### Git Workflow
 
 ```bash
 # 1. Pull latest before you start
@@ -100,7 +153,7 @@ git push origin your-name/short-description
 #    (or coordinate with the team on merge strategy)
 ```
 
-### Quick reference
+### Quick Reference
 
 | Task | Command |
 |------|---------|
@@ -114,6 +167,7 @@ git push origin your-name/short-description
 | Commit | `git commit -m "message"` |
 | Push | `git push origin branch-name` |
 | View log | `git log --oneline -10` |
+| Run frontend | `cd frontend && npm install && npm run dev` |
 
 ---
 
