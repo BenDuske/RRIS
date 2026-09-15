@@ -1,5 +1,5 @@
-from datetime import datetime
-from models import Event, Location, ParsedFields, Provenance
+from datetime import datetime, timezone
+from ingestion.models import Event, Location, ParsedFields, Provenance
 
 def normalize_report(raw_input: dict) -> Event:
     """
