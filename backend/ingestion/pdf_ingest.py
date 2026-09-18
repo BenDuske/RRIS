@@ -62,4 +62,5 @@ def ingest_pdf(path: str) -> Optional[str]:
         cleaned = "\n".join(line.strip() for line in text.split("\n") if line.strip())
         return cleaned
 
-    except
+    except Exception as e:
+        return f"[INGEST ERROR] {e}
