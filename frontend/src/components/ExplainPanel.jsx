@@ -50,27 +50,35 @@ function Timeline({ timeline }) {
 
 function PriorityBreakdown({ breakdown, priority }) {
   const labels = {
-    life_threat: "Life Threat",
     severity: "Severity",
+    injuries: "Injuries",
     hazards: "Hazards",
+    agencies: "Agencies",
+    confidence: "Confidence",
+    life_threat: "Life Threat",
     time_sensitivity: "Time Sens.",
     resource_load: "Resources",
     vulnerable_pop: "Vulnerable",
+    agencies_needed: "Agencies",
   };
 
   const weights = {
-    life_threat: 0.3,
-    severity: 0.2,
-    hazards: 0.15,
-    time_sensitivity: 0.15,
-    resource_load: 0.1,
-    vulnerable_pop: 0.1,
+    severity: 45,
+    injuries: 25,
+    hazards: 15,
+    agencies: 10,
+    confidence: 5,
+    life_threat: 30,
+    time_sensitivity: 15,
+    resource_load: 10,
+    vulnerable_pop: 10,
+    agencies_needed: 10,
   };
 
   const data = Object.entries(breakdown).map(([key, value]) => ({
     name: labels[key] || key,
     score: value,
-    weight: Math.round((weights[key] || 0) * 100),
+    weight: weights[key] || 0,
   }));
 
   return (

@@ -31,10 +31,15 @@ export function formatTimeShort(isoString) {
 
 export const INCIDENT_ICONS = {
   Fire: "🔥",
+  "Structure Fire": "🔥",
   Medical: "🏥",
+  "Medical Emergency": "🏥",
   Transportation: "🚗",
+  "Traffic Incident": "🚗",
   Weather: "⛈️",
   HazMat: "☢️",
+  "HazMat Incident": "☢️",
+  "Flooding / Road Hazard": "🌊",
   Infrastructure: "🏗️",
   "Public Safety": "🛡️",
   Rescue: "🚁",

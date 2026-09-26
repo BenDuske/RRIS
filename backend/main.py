@@ -5,7 +5,14 @@ from typing import List
 from backend.ingestion.normalizer import normalize_report
 from backend.intelligence.fusion import process_event, INCIDENTS
 from backend.intelligence.explainability import build_incident_explainability
-from backend.intelligence.priority import compute_priority_score
+from backend.intelligence.priority import (
+    compute_priority_score,
+    normalize_severity,
+    normalize_injuries,
+    normalize_hazards,
+    normalize_agencies,
+    normalize_confidence,
+)
 
 app = FastAPI(title="RRIS Backend", version="1.0")
 
@@ -20,6 +27,56 @@ app.add_middleware(
 clients: List[WebSocket] = []
 
 
+def enrich_incident(incident) -> dict:
+    data = incident.model_dump(mode="json")
+
+    max_severity = None
+    max_injuries = None
+    all_hazards = []
+    all_agencies = []
+
+    for event in incident.events:
+        pf = event.parsed_fields
+        if pf.severity_estimate is not None:
+            max_severity = max(max_severity or 0, pf.severity_estimate)
+        if pf.injuries is not None:
+            max_injuries = max(max_injuries or 0, pf.injuries)
+        all_hazards.extend(pf.hazards or [])
+        all_agencies.extend(pf.agencies_needed or [])
+
+    data["priority_breakdown"] = {
+        "severity": round(normalize_severity(max_severity) * 10, 1),
+        "injuries": round(normalize_injuries(max_injuries) * 10, 1),
+        "hazards": round(normalize_hazards(list(set(all_hazards))) * 10, 1),
+        "agencies": round(normalize_agencies(list(set(all_agencies))) * 10, 1),
+        "confidence": round(normalize_confidence(incident.confidence) * 10, 1),
+    }
+
+    timeline = []
+    for i, event in enumerate(incident.events):
+        timeline.append({
+            "type": "created" if i == 0 else "evidence",
+            "summary": event.parsed_fields.key_details or event.raw_text[:120],
+            "created_at": event.timestamp.isoformat()
+            if hasattr(event.timestamp, "isoformat")
+            else str(event.timestamp),
+        })
+    data["timeline"] = timeline
+
+    lims = []
+    if len(incident.events) == 1:
+        lims.append("Single source report")
+    unconfirmed = sum(1 for e in incident.events if not e.provenance.last_confirmed)
+    if unconfirmed:
+        lims.append(f"{unconfirmed} source(s) unconfirmed")
+    has_injury_gap = any(e.parsed_fields.injuries is None for e in incident.events)
+    if has_injury_gap and len(incident.events) > 1:
+        lims.append("Injury count not confirmed by all sources")
+    data["limitations"] = lims
+
+    return data
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
@@ -32,10 +89,7 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 async def broadcast_incident(incident):
-    data = {
-        "type": "incident_update",
-        "incident": incident.model_dump(mode="json"),
-    }
+    data = {"type": "incident_update", "incident": enrich_incident(incident)}
     for ws in list(clients):
         try:
             await ws.send_json(data)
@@ -59,7 +113,7 @@ async def ingest_event(raw_input: dict):
 
 @app.get("/incidents")
 def list_incidents():
-    return [i.model_dump(mode="json") for i in INCIDENTS]
+    return [enrich_incident(i) for i in INCIDENTS]
 
 
 @app.get("/incidents/{incident_id}")
@@ -69,6 +123,6 @@ def get_incident_details(incident_id: int):
         raise HTTPException(status_code=404, detail="Incident not found")
     priority_score = compute_priority_score(incident)
     return {
-        "incident": incident.model_dump(mode="json"),
+        "incident": enrich_incident(incident),
         "explainability": build_incident_explainability(incident, priority_score),
     }
