@@ -12,6 +12,22 @@ INCIDENTS: List[Incident] = []
 INCIDENT_META: dict = {}  # id -> {previous_priority, confirmed, human_priority}
 _next_id = 1
 
+TYPE_SEVERITY_RANK = {
+    "Structure Fire": 90,
+    "HazMat Incident": 85,
+    "Medical Emergency": 80,
+    "Traffic Incident": 60,
+    "Flooding / Road Hazard": 50,
+    "Weather": 20,
+}
+
+
+def reset_state():
+    global _next_id
+    INCIDENTS.clear()
+    INCIDENT_META.clear()
+    _next_id = 1
+
 
 def haversine_distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     from math import radians, sin, cos, sqrt, atan2
@@ -60,14 +76,22 @@ def process_event(event: Event) -> Incident:
     now = datetime.now(timezone.utc)
 
     if matching:
+        existing_ids = {e.source_id for e in matching.events}
+        if event.source_id in existing_ids:
+            return matching
+
         INCIDENT_META.setdefault(matching.id, {})["previous_priority"] = matching.priority
 
         matching.events.append(event)
         event.confidence = compute_event_confidence(event, matching.events)
         matching.confidence = sum(e.confidence for e in matching.events) / len(matching.events)
 
-        if event.parsed_fields.incident_type and not matching.incident_type:
-            matching.incident_type = event.parsed_fields.incident_type
+        new_type = event.parsed_fields.incident_type
+        if new_type:
+            cur_rank = TYPE_SEVERITY_RANK.get(matching.incident_type, 0)
+            new_rank = TYPE_SEVERITY_RANK.get(new_type, 0)
+            if new_rank > cur_rank:
+                matching.incident_type = new_type
 
         meta = INCIDENT_META[matching.id]
         if not meta.get("confirmed"):

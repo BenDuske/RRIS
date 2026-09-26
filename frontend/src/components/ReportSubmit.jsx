@@ -16,7 +16,7 @@ const EXAMPLE_REPORT = JSON.stringify(
   2
 );
 
-const API_URL = "http://localhost:8000";
+const API_URL = "";
 
 export default function ReportSubmit({ onSubmitted }) {
   const [text, setText] = useState(EXAMPLE_REPORT);
@@ -57,7 +57,18 @@ export default function ReportSubmit({ onSubmitted }) {
     }
   }
 
+  async function clearAll() {
+    try {
+      await fetch(`${API_URL}/reset`, { method: "POST" });
+      setStatus({ ok: true, msg: "All incidents cleared" });
+      if (onSubmitted) onSubmitted();
+    } catch {
+      setStatus({ ok: false, msg: "Failed to clear" });
+    }
+  }
+
   async function runDemo() {
+    await clearAll();
     setDemoRunning(true);
     demoAbort.current = false;
     setDemoStep(0);
@@ -155,6 +166,9 @@ export default function ReportSubmit({ onSubmitted }) {
         </button>
         <button onClick={() => setText(EXAMPLE_REPORT)} style={resetBtnStyle}>
           Reset
+        </button>
+        <button onClick={clearAll} style={{ ...resetBtnStyle, color: "#dc2626", borderColor: "#fca5a5" }}>
+          Clear All
         </button>
         <div style={{ flex: 1 }} />
         {demoRunning ? (

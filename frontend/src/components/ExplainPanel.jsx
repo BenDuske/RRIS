@@ -6,7 +6,7 @@ import {
   getPriorityTier, getConfidenceLabel, formatTime, SOURCE_LABELS,
 } from "../utils/priorityColors";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "";
 
 function Timeline({ timeline }) {
   const typeStyles = {

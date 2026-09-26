@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from backend.ingestion.normalizer import normalize_report
-from backend.intelligence.fusion import process_event, INCIDENTS, INCIDENT_META
+from backend.intelligence.fusion import process_event, INCIDENTS, INCIDENT_META, reset_state
 from backend.intelligence.explainability import build_incident_explainability
 from backend.intelligence.priority import (
     compute_priority_score,
@@ -120,6 +120,17 @@ async def broadcast_incident(incident):
             await ws.send_json(data)
         except Exception:
             clients.remove(ws)
+
+
+@app.post("/reset")
+async def reset_incidents():
+    reset_state()
+    for ws in list(clients):
+        try:
+            await ws.send_json({"type": "reset"})
+        except Exception:
+            clients.remove(ws)
+    return {"status": "ok"}
 
 
 @app.post("/ingest")

@@ -5,8 +5,8 @@ import ExplainPanel from "./components/ExplainPanel";
 import RoleFilter from "./components/RoleFilter";
 import ReportSubmit from "./components/ReportSubmit";
 
-const API_URL = "http://localhost:8000";
-const WS_URL = "ws://localhost:8000/ws";
+const API_URL = "";
+const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
 
 export default function App() {
   const [incidents, setIncidents] = useState([]);
@@ -45,7 +45,10 @@ export default function App() {
       };
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
-        if (msg.type === "incident_update") {
+        if (msg.type === "reset") {
+          setIncidents([]);
+          setSelectedId(null);
+        } else if (msg.type === "incident_update") {
           setIncidents((prev) => {
             const idx = prev.findIndex((i) => i.id === msg.incident.id);
             if (idx >= 0) {
