@@ -5,6 +5,7 @@ export default function Dashboard({ incidents, selectedId, onSelect }) {
   const sorted = [...incidents].sort((a, b) => b.priority - a.priority);
   const [recentlyUpdated, setRecentlyUpdated] = useState(new Set());
   const prevRef = useRef({});
+  const containerRef = useRef(null);
 
   useEffect(() => {
     const newUpdates = new Set();
@@ -22,8 +23,16 @@ export default function Dashboard({ incidents, selectedId, onSelect }) {
     }
   }, [incidents]);
 
+  useEffect(() => {
+    if (recentlyUpdated.size > 0 && containerRef.current) {
+      const firstId = [...recentlyUpdated][0];
+      const el = containerRef.current.querySelector(`[data-incident-id="${firstId}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [recentlyUpdated]);
+
   return (
-    <div style={{ height: "100%", overflowY: "auto", padding: "12px" }}>
+    <div ref={containerRef} style={{ height: "100%", overflowY: "auto", padding: "12px" }}>
       <div
         style={{
           fontSize: "11px",
@@ -36,13 +45,14 @@ export default function Dashboard({ incidents, selectedId, onSelect }) {
         {incidents.length} Active Incident{incidents.length !== 1 ? "s" : ""}
       </div>
       {sorted.map((incident) => (
-        <IncidentCard
-          key={incident.id}
-          incident={incident}
-          isSelected={incident.id === selectedId}
-          onSelect={onSelect}
-          isUpdated={recentlyUpdated.has(incident.id)}
-        />
+        <div key={incident.id} data-incident-id={incident.id}>
+          <IncidentCard
+            incident={incident}
+            isSelected={incident.id === selectedId}
+            onSelect={onSelect}
+            isUpdated={recentlyUpdated.has(incident.id)}
+          />
+        </div>
       ))}
       {incidents.length === 0 && (
         <div style={{ textAlign: "center", color: "#9ca3af", fontSize: "13px", marginTop: "40px" }}>
