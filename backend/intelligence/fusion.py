@@ -9,6 +9,7 @@ from backend.intelligence.priority import compute_priority_score
 
 
 INCIDENTS: List[Incident] = []
+INCIDENT_META: dict = {}  # id -> {previous_priority, confirmed, human_priority}
 _next_id = 1
 
 
@@ -59,6 +60,8 @@ def process_event(event: Event) -> Incident:
     now = datetime.now(timezone.utc)
 
     if matching:
+        INCIDENT_META.setdefault(matching.id, {})["previous_priority"] = matching.priority
+
         matching.events.append(event)
         event.confidence = compute_event_confidence(event, matching.events)
         matching.confidence = sum(e.confidence for e in matching.events) / len(matching.events)
@@ -66,8 +69,11 @@ def process_event(event: Event) -> Incident:
         if event.parsed_fields.incident_type and not matching.incident_type:
             matching.incident_type = event.parsed_fields.incident_type
 
-        priority_score = compute_priority_score(matching)
-        matching.priority = priority_score.value
+        meta = INCIDENT_META[matching.id]
+        if not meta.get("confirmed"):
+            priority_score = compute_priority_score(matching)
+            matching.priority = priority_score.value
+
         matching.updated_at = now
         return matching
 

@@ -1,9 +1,12 @@
+import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import {
   getPriorityTier, getConfidenceLabel, formatTime, SOURCE_LABELS,
 } from "../utils/priorityColors";
+
+const API_URL = "http://localhost:8000";
 
 function Timeline({ timeline }) {
   const typeStyles = {
@@ -17,8 +20,11 @@ function Timeline({ timeline }) {
     <div>
       <h4 style={{ margin: "0 0 8px", fontSize: "13px", color: "#374151" }}>Timeline</h4>
       <div style={{ borderLeft: "2px solid #e5e7eb", paddingLeft: "12px" }}>
-        {timeline.map((entry, i) => {
+        {(timeline || []).map((entry, i) => {
           const style = typeStyles[entry.type] || typeStyles.evidence;
+          const sourceLabel = entry.source_type
+            ? SOURCE_LABELS[entry.source_type] || entry.source_type
+            : null;
           return (
             <div key={i} style={{ marginBottom: "8px", fontSize: "12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -26,16 +32,14 @@ function Timeline({ timeline }) {
                 <span style={{ color: "#9ca3af", fontFamily: "monospace", fontSize: "11px" }}>
                   {formatTime(entry.created_at)}
                 </span>
-                <span
-                  style={{
-                    fontSize: "9px",
-                    textTransform: "uppercase",
-                    color: style.color,
-                    fontWeight: 600,
-                  }}
-                >
+                <span style={{ fontSize: "9px", textTransform: "uppercase", color: style.color, fontWeight: 600 }}>
                   {entry.type}
                 </span>
+                {sourceLabel && (
+                  <span style={{ fontSize: "9px", color: "#9ca3af", backgroundColor: "#f3f4f6", padding: "1px 4px", borderRadius: "3px" }}>
+                    {sourceLabel}
+                  </span>
+                )}
               </div>
               <div style={{ color: "#374151", marginTop: "2px", marginLeft: "16px" }}>
                 {entry.summary}
@@ -43,6 +47,9 @@ function Timeline({ timeline }) {
             </div>
           );
         })}
+        {(!timeline || timeline.length === 0) && (
+          <div style={{ color: "#9ca3af", fontSize: "12px" }}>No timeline data</div>
+        )}
       </div>
     </div>
   );
@@ -55,10 +62,6 @@ function PriorityBreakdown({ breakdown, priority }) {
     hazards: "Hazards",
     agencies: "Agencies",
     confidence: "Confidence",
-    life_threat: "Life Threat",
-    time_sensitivity: "Time Sens.",
-    resource_load: "Resources",
-    vulnerable_pop: "Vulnerable",
     agencies_needed: "Agencies",
   };
 
@@ -68,12 +71,10 @@ function PriorityBreakdown({ breakdown, priority }) {
     hazards: 15,
     agencies: 10,
     confidence: 5,
-    life_threat: 30,
-    time_sensitivity: 15,
-    resource_load: 10,
-    vulnerable_pop: 10,
     agencies_needed: 10,
   };
+
+  if (!breakdown) return null;
 
   const data = Object.entries(breakdown).map(([key, value]) => ({
     name: labels[key] || key,
@@ -114,11 +115,11 @@ function Sources({ events }) {
   return (
     <div>
       <h4 style={{ margin: "0 0 8px", fontSize: "13px", color: "#374151" }}>
-        Data Sources ({events.length})
+        Data Sources ({(events || []).length})
       </h4>
-      {events.map((event, i) => {
+      {(events || []).map((event, i) => {
         const sourceLabel = SOURCE_LABELS[event.source_type] || event.source_type;
-        const confirmed = event.provenance.last_confirmed;
+        const confirmed = event.provenance?.last_confirmed;
         return (
           <div
             key={i}
@@ -138,16 +139,30 @@ function Sources({ events }) {
               </span>
             </div>
             <div style={{ color: "#6b7280", marginTop: "4px" }}>
-              {event.parsed_fields.key_details || event.raw_text.slice(0, 120)}
+              {event.parsed_fields?.key_details || event.raw_text?.slice(0, 120)}
             </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                marginTop: "4px",
-                fontSize: "11px",
-              }}
-            >
+
+            {event.parsed_fields && (
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "6px" }}>
+                {event.parsed_fields.incident_type && (
+                  <Tag label="Type" value={event.parsed_fields.incident_type} />
+                )}
+                {event.parsed_fields.injuries != null && (
+                  <Tag label="Injuries" value={event.parsed_fields.injuries} color="#dc2626" />
+                )}
+                {(event.parsed_fields.hazards || []).map((h, j) => (
+                  <Tag key={j} label="Hazard" value={h} color="#ea580c" />
+                ))}
+                {(event.parsed_fields.agencies_needed || []).map((a, j) => (
+                  <Tag key={j} label="Agency" value={a} color="#2563eb" />
+                ))}
+                {event.parsed_fields.severity_estimate != null && (
+                  <Tag label="Sev" value={`${event.parsed_fields.severity_estimate}/10`} />
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "12px", marginTop: "4px", fontSize: "11px" }}>
               <span>
                 Confidence:{" "}
                 <strong
@@ -164,9 +179,9 @@ function Sources({ events }) {
                 </strong>
               </span>
               <span style={{ color: confirmed ? "#16a34a" : "#ca8a04" }}>
-                {confirmed ? "✓ Confirmed" : "○ Unconfirmed"}
+                {confirmed ? "Confirmed" : "Unconfirmed"}
               </span>
-              {event.provenance.supporting_sources.length > 0 && (
+              {(event.provenance?.supporting_sources || []).length > 0 && (
                 <span style={{ color: "#2563eb" }}>
                   +{event.provenance.supporting_sources.length} corroborating
                 </span>
@@ -179,13 +194,28 @@ function Sources({ events }) {
   );
 }
 
+function Tag({ label, value, color }) {
+  return (
+    <span
+      style={{
+        fontSize: "10px",
+        padding: "1px 6px",
+        borderRadius: "3px",
+        backgroundColor: color ? `${color}10` : "#f3f4f6",
+        color: color || "#374151",
+        border: `1px solid ${color || "#e5e7eb"}20`,
+      }}
+    >
+      {label}: <strong>{value}</strong>
+    </span>
+  );
+}
+
 function Limitations({ limitations }) {
   if (!limitations || limitations.length === 0) return null;
   return (
     <div>
-      <h4 style={{ margin: "0 0 8px", fontSize: "13px", color: "#374151" }}>
-        Limitations
-      </h4>
+      <h4 style={{ margin: "0 0 8px", fontSize: "13px", color: "#374151" }}>Limitations</h4>
       <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "12px", color: "#6b7280" }}>
         {limitations.map((lim, i) => (
           <li key={i} style={{ marginBottom: "4px" }}>{lim}</li>
@@ -196,6 +226,9 @@ function Limitations({ limitations }) {
 }
 
 export default function ExplainPanel({ incident }) {
+  const [adjusting, setAdjusting] = useState(false);
+  const [newPriority, setNewPriority] = useState("");
+
   if (!incident) {
     return (
       <div
@@ -214,6 +247,27 @@ export default function ExplainPanel({ incident }) {
   }
 
   const tier = getPriorityTier(incident.priority);
+  const delta = incident.priority_delta || 0;
+
+  async function handleConfirm() {
+    try {
+      await fetch(`${API_URL}/incidents/${incident.id}/confirm`, { method: "POST" });
+    } catch { /* handled via WebSocket update */ }
+  }
+
+  async function handleAdjust() {
+    const val = parseInt(newPriority, 10);
+    if (isNaN(val) || val < 0 || val > 100) return;
+    try {
+      await fetch(`${API_URL}/incidents/${incident.id}/adjust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority: val }),
+      });
+      setAdjusting(false);
+      setNewPriority("");
+    } catch { /* handled via WebSocket update */ }
+  }
 
   return (
     <div style={{ padding: "16px", overflowY: "auto", height: "100%" }}>
@@ -232,13 +286,26 @@ export default function ExplainPanel({ incident }) {
             Incident #{incident.id} — {incident.incident_type}
           </h3>
           <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
-            {incident.location.address}
+            {incident.location?.address}
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: "24px", fontWeight: 700, color: tier.color }}>
-            {incident.priority}
-            <span style={{ fontSize: "14px", color: "#9ca3af" }}>/100</span>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "6px", justifyContent: "flex-end" }}>
+            <span style={{ fontSize: "24px", fontWeight: 700, color: tier.color }}>
+              {incident.priority}
+              <span style={{ fontSize: "14px", color: "#9ca3af" }}>/100</span>
+            </span>
+            {delta !== 0 && (
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  color: delta > 0 ? "#dc2626" : "#16a34a",
+                }}
+              >
+                {delta > 0 ? "+" : ""}{delta}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: "11px", color: "#6b7280" }}>
             Confidence: {Math.round(incident.confidence * 100)}% ({getConfidenceLabel(incident.confidence)})
@@ -246,13 +313,7 @@ export default function ExplainPanel({ incident }) {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <Timeline timeline={incident.timeline} />
           <Limitations limitations={incident.limitations} />
@@ -267,46 +328,83 @@ export default function ExplainPanel({ incident }) {
         style={{
           marginTop: "16px",
           padding: "10px 14px",
-          backgroundColor: "#eff6ff",
+          backgroundColor: incident.confirmed ? "#f0fdf4" : "#eff6ff",
           borderRadius: "6px",
-          border: "1px solid #bfdbfe",
+          border: `1px solid ${incident.confirmed ? "#bbf7d0" : "#bfdbfe"}`,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
         }}
       >
-        <span style={{ fontSize: "12px", color: "#1e40af" }}>
-          AI recommends priority <strong>{incident.priority}</strong>. Human confirmation required.
-        </span>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button
-            style={{
-              padding: "4px 12px",
-              fontSize: "12px",
-              backgroundColor: "#2563eb",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            Confirm
-          </button>
-          <button
-            style={{
-              padding: "4px 12px",
-              fontSize: "12px",
-              backgroundColor: "#fff",
-              color: "#374151",
-              border: "1px solid #d1d5db",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            Adjust
-          </button>
+        {incident.confirmed ? (
+          <span style={{ fontSize: "12px", color: "#16a34a", fontWeight: 600 }}>
+            Human confirmed — priority {incident.priority}
+            {incident.human_priority != null && ` (adjusted from AI recommendation)`}
+          </span>
+        ) : (
+          <span style={{ fontSize: "12px", color: "#1e40af" }}>
+            AI recommends priority <strong>{incident.priority}</strong>. Human confirmation required.
+          </span>
+        )}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {adjusting ? (
+            <>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={newPriority}
+                onChange={(e) => setNewPriority(e.target.value)}
+                placeholder="0-100"
+                style={{
+                  width: "60px",
+                  padding: "4px 8px",
+                  fontSize: "12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                }}
+              />
+              <button onClick={handleAdjust} style={confirmBtnStyle}>
+                Set
+              </button>
+              <button onClick={() => setAdjusting(false)} style={adjustBtnStyle}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              {!incident.confirmed && (
+                <button onClick={handleConfirm} style={confirmBtnStyle}>
+                  Confirm
+                </button>
+              )}
+              <button onClick={() => setAdjusting(true)} style={adjustBtnStyle}>
+                Adjust
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+const confirmBtnStyle = {
+  padding: "4px 12px",
+  fontSize: "12px",
+  backgroundColor: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
+};
+
+const adjustBtnStyle = {
+  padding: "4px 12px",
+  fontSize: "12px",
+  backgroundColor: "#fff",
+  color: "#374151",
+  border: "1px solid #d1d5db",
+  borderRadius: "4px",
+  cursor: "pointer",
+};

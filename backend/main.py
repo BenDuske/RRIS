@@ -1,9 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from pydantic import BaseModel
+from typing import List, Optional
 
 from backend.ingestion.normalizer import normalize_report
-from backend.intelligence.fusion import process_event, INCIDENTS
+from backend.intelligence.fusion import process_event, INCIDENTS, INCIDENT_META
 from backend.intelligence.explainability import build_incident_explainability
 from backend.intelligence.priority import (
     compute_priority_score,
@@ -26,9 +27,12 @@ app.add_middleware(
 
 clients: List[WebSocket] = []
 
+ESCALATION_HAZARDS = {"fuel_leak", "fire_hazard", "hazmat", "entrapment", "active_fire", "chemical"}
+
 
 def enrich_incident(incident) -> dict:
     data = incident.model_dump(mode="json")
+    meta = INCIDENT_META.get(incident.id, {})
 
     max_severity = None
     max_injuries = None
@@ -52,14 +56,35 @@ def enrich_incident(incident) -> dict:
         "confidence": round(normalize_confidence(incident.confidence) * 10, 1),
     }
 
+    prev = meta.get("previous_priority")
+    data["priority_delta"] = (incident.priority or 0) - prev if prev is not None else 0
+
+    data["confirmed"] = meta.get("confirmed", False)
+    data["human_priority"] = meta.get("human_priority")
+
     timeline = []
+    seen_hazards = set()
     for i, event in enumerate(incident.events):
+        event_hazards = set(event.parsed_fields.hazards or [])
+        new_escalation = event_hazards & ESCALATION_HAZARDS - seen_hazards
+
+        if i == 0:
+            entry_type = "created"
+        elif new_escalation:
+            entry_type = "escalation"
+        else:
+            entry_type = "evidence"
+
+        seen_hazards |= event_hazards
+
         timeline.append({
-            "type": "created" if i == 0 else "evidence",
+            "type": entry_type,
             "summary": event.parsed_fields.key_details or event.raw_text[:120],
             "created_at": event.timestamp.isoformat()
             if hasattr(event.timestamp, "isoformat")
             else str(event.timestamp),
+            "source_type": event.source_type,
+            "source_id": event.source_id,
         })
     data["timeline"] = timeline
 
@@ -126,3 +151,32 @@ def get_incident_details(incident_id: int):
         "incident": enrich_incident(incident),
         "explainability": build_incident_explainability(incident, priority_score),
     }
+
+
+@app.post("/incidents/{incident_id}/confirm")
+async def confirm_incident(incident_id: int):
+    incident = next((i for i in INCIDENTS if i.id == incident_id), None)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    meta = INCIDENT_META.setdefault(incident_id, {})
+    meta["confirmed"] = True
+    await broadcast_incident(incident)
+    return {"status": "confirmed", "incident_id": incident_id, "priority": incident.priority}
+
+
+class AdjustRequest(BaseModel):
+    priority: int
+
+
+@app.post("/incidents/{incident_id}/adjust")
+async def adjust_incident(incident_id: int, body: AdjustRequest):
+    incident = next((i for i in INCIDENTS if i.id == incident_id), None)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    meta = INCIDENT_META.setdefault(incident_id, {})
+    meta["previous_priority"] = incident.priority
+    meta["human_priority"] = body.priority
+    meta["confirmed"] = True
+    incident.priority = max(0, min(100, body.priority))
+    await broadcast_incident(incident)
+    return {"status": "adjusted", "incident_id": incident_id, "priority": incident.priority}

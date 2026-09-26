@@ -1,16 +1,29 @@
+import { useEffect, useRef, useState } from "react";
 import IncidentCard from "./IncidentCard";
 
 export default function Dashboard({ incidents, selectedId, onSelect }) {
   const sorted = [...incidents].sort((a, b) => b.priority - a.priority);
+  const [recentlyUpdated, setRecentlyUpdated] = useState(new Set());
+  const prevRef = useRef({});
+
+  useEffect(() => {
+    const newUpdates = new Set();
+    for (const inc of incidents) {
+      const prev = prevRef.current[inc.id];
+      if (prev && (prev.priority !== inc.priority || prev.events?.length !== inc.events?.length)) {
+        newUpdates.add(inc.id);
+      }
+      prevRef.current[inc.id] = { priority: inc.priority, events: inc.events };
+    }
+    if (newUpdates.size > 0) {
+      setRecentlyUpdated(newUpdates);
+      const timer = setTimeout(() => setRecentlyUpdated(new Set()), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [incidents]);
 
   return (
-    <div
-      style={{
-        height: "100%",
-        overflowY: "auto",
-        padding: "12px",
-      }}
-    >
+    <div style={{ height: "100%", overflowY: "auto", padding: "12px" }}>
       <div
         style={{
           fontSize: "11px",
@@ -28,8 +41,14 @@ export default function Dashboard({ incidents, selectedId, onSelect }) {
           incident={incident}
           isSelected={incident.id === selectedId}
           onSelect={onSelect}
+          isUpdated={recentlyUpdated.has(incident.id)}
         />
       ))}
+      {incidents.length === 0 && (
+        <div style={{ textAlign: "center", color: "#9ca3af", fontSize: "13px", marginTop: "40px" }}>
+          No incidents. Submit a report or run the demo.
+        </div>
+      )}
     </div>
   );
 }

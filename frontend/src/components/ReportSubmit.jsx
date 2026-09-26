@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import demoScenario from "../data/demoScenario";
 
 const EXAMPLE_REPORT = JSON.stringify(
   {
@@ -21,6 +22,19 @@ export default function ReportSubmit({ onSubmitted }) {
   const [text, setText] = useState(EXAMPLE_REPORT);
   const [status, setStatus] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [demoRunning, setDemoRunning] = useState(false);
+  const [demoStep, setDemoStep] = useState(-1);
+  const demoAbort = useRef(false);
+
+  async function submitReport(report) {
+    const res = await fetch(`${API_URL}/ingest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(report),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
 
   async function handleSubmit() {
     setStatus(null);
@@ -31,19 +45,8 @@ export default function ReportSubmit({ onSubmitted }) {
       setStatus({ ok: false, msg: "Invalid JSON" });
       return;
     }
-
     try {
-      const res = await fetch(`${API_URL}/ingest`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed),
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        setStatus({ ok: false, msg: `Server error: ${err}` });
-        return;
-      }
-      const data = await res.json();
+      const data = await submitReport(parsed);
       setStatus({
         ok: true,
         msg: `Incident #${data.incident_id} — priority ${data.incident_priority}, ${data.event_count} report(s)`,
@@ -54,6 +57,39 @@ export default function ReportSubmit({ onSubmitted }) {
     }
   }
 
+  async function runDemo() {
+    setDemoRunning(true);
+    demoAbort.current = false;
+    setDemoStep(0);
+
+    for (let i = 0; i < demoScenario.length; i++) {
+      if (demoAbort.current) break;
+      const step = demoScenario[i];
+
+      if (step.delay > 0) {
+        await new Promise((r) => setTimeout(r, step.delay));
+      }
+      if (demoAbort.current) break;
+
+      setDemoStep(i);
+      try {
+        await submitReport(step.report);
+      } catch {
+        /* continue even if one fails */
+      }
+      if (onSubmitted) onSubmitted();
+    }
+
+    setDemoRunning(false);
+    setDemoStep(-1);
+  }
+
+  function stopDemo() {
+    demoAbort.current = true;
+    setDemoRunning(false);
+    setDemoStep(-1);
+  }
+
   if (collapsed) {
     return (
       <div
@@ -61,55 +97,35 @@ export default function ReportSubmit({ onSubmitted }) {
           padding: "8px 12px",
           borderBottom: "1px solid #e5e7eb",
           backgroundColor: "#f8fafc",
-          cursor: "pointer",
-          fontSize: "12px",
-          color: "#2563eb",
-          fontWeight: 600,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
-        onClick={() => setCollapsed(false)}
       >
-        + Submit Report
+        <span
+          style={{ cursor: "pointer", fontSize: "12px", color: "#2563eb", fontWeight: 600 }}
+          onClick={() => setCollapsed(false)}
+        >
+          + Submit Report
+        </span>
+        {!demoRunning && (
+          <button onClick={runDemo} style={demoBtnStyle}>
+            Run Demo
+          </button>
+        )}
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        padding: "12px",
-        borderBottom: "1px solid #e5e7eb",
-        backgroundColor: "#f8fafc",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "8px",
-        }}
-      >
-        <span
-          style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            color: "#374151",
-            letterSpacing: "0.5px",
-          }}
-        >
+    <div style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", backgroundColor: "#f8fafc" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+        <span style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", color: "#374151", letterSpacing: "0.5px" }}>
           Submit Report (JSON)
         </span>
         <button
           onClick={() => setCollapsed(true)}
-          style={{
-            background: "none",
-            border: "none",
-            fontSize: "16px",
-            cursor: "pointer",
-            color: "#9ca3af",
-            lineHeight: 1,
-          }}
+          style={{ background: "none", border: "none", fontSize: "16px", cursor: "pointer", color: "#9ca3af", lineHeight: 1 }}
         >
           ×
         </button>
@@ -121,7 +137,7 @@ export default function ReportSubmit({ onSubmitted }) {
         spellCheck={false}
         style={{
           width: "100%",
-          height: "140px",
+          height: "120px",
           fontFamily: "monospace",
           fontSize: "11px",
           padding: "8px",
@@ -133,55 +149,87 @@ export default function ReportSubmit({ onSubmitted }) {
         }}
       />
 
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          alignItems: "center",
-          marginTop: "8px",
-        }}
-      >
-        <button
-          onClick={handleSubmit}
-          style={{
-            padding: "6px 16px",
-            fontSize: "12px",
-            fontWeight: 600,
-            backgroundColor: "#2563eb",
-            color: "#fff",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
-        >
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "8px", flexWrap: "wrap" }}>
+        <button onClick={handleSubmit} style={submitBtnStyle}>
           Submit
         </button>
-        <button
-          onClick={() => setText(EXAMPLE_REPORT)}
-          style={{
-            padding: "6px 12px",
-            fontSize: "12px",
-            backgroundColor: "#fff",
-            color: "#6b7280",
-            border: "1px solid #d1d5db",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
-        >
+        <button onClick={() => setText(EXAMPLE_REPORT)} style={resetBtnStyle}>
           Reset
         </button>
-        {status && (
-          <span
-            style={{
-              fontSize: "11px",
-              color: status.ok ? "#16a34a" : "#dc2626",
-              flex: 1,
-            }}
-          >
-            {status.msg}
-          </span>
+        <div style={{ flex: 1 }} />
+        {demoRunning ? (
+          <button onClick={stopDemo} style={{ ...demoBtnStyle, backgroundColor: "#dc2626" }}>
+            Stop Demo
+          </button>
+        ) : (
+          <button onClick={runDemo} style={demoBtnStyle}>
+            Run Demo
+          </button>
         )}
       </div>
+
+      {status && (
+        <div style={{ fontSize: "11px", color: status.ok ? "#16a34a" : "#dc2626", marginTop: "6px" }}>
+          {status.msg}
+        </div>
+      )}
+
+      {demoRunning && demoStep >= 0 && (
+        <div style={{ marginTop: "8px" }}>
+          <div style={{ fontSize: "11px", color: "#374151", fontWeight: 600, marginBottom: "4px" }}>
+            Demo: {demoStep + 1}/{demoScenario.length}
+          </div>
+          <div style={{ display: "flex", gap: "2px" }}>
+            {demoScenario.map((step, i) => (
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  height: "4px",
+                  borderRadius: "2px",
+                  backgroundColor: i <= demoStep ? "#2563eb" : "#e5e7eb",
+                  transition: "background-color 0.3s",
+                }}
+              />
+            ))}
+          </div>
+          <div style={{ fontSize: "10px", color: "#6b7280", marginTop: "4px" }}>
+            {demoScenario[demoStep].label}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const submitBtnStyle = {
+  padding: "6px 16px",
+  fontSize: "12px",
+  fontWeight: 600,
+  backgroundColor: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+};
+
+const resetBtnStyle = {
+  padding: "6px 12px",
+  fontSize: "12px",
+  backgroundColor: "#fff",
+  color: "#6b7280",
+  border: "1px solid #d1d5db",
+  borderRadius: "6px",
+  cursor: "pointer",
+};
+
+const demoBtnStyle = {
+  padding: "6px 14px",
+  fontSize: "12px",
+  fontWeight: 600,
+  backgroundColor: "#16a34a",
+  color: "#fff",
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+};
