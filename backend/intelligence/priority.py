@@ -1,6 +1,6 @@
 from typing import Dict
 from backend.models import Incident, PriorityScore
-from backend.intelligence.config import config
+from backend.config import config
 
 
 # ---------------------------------------------------------------------------
@@ -66,21 +66,32 @@ def normalize_confidence(confidence: float | None) -> float:
 def compute_priority_score(incident: Incident) -> PriorityScore:
     """
     Computes a weighted priority score (0–100) for an incident.
-    Uses severity, injuries, hazards, agencies, and confidence.
+    Aggregates across all events — takes the worst case for each factor.
     """
 
-    # Pull weights from config
     w = config.priority_weights
 
-    # Aggregate incident-level fields
-    # We use the most recent event for severity/injuries if available
-    latest_event = incident.events[-1] if incident.events else None
-    pf = latest_event.parsed_fields if latest_event else None
+    max_severity = None
+    max_injuries = None
+    all_hazards = []
+    all_agencies = []
 
-    severity_score = normalize_severity(pf.severity_estimate if pf else None)
-    injuries_score = normalize_injuries(pf.injuries if pf else None)
-    hazards_score = normalize_hazards(pf.hazards if pf else [])
-    agencies_score = normalize_agencies(pf.agencies_needed if pf else [])
+    for event in incident.events:
+        pf = event.parsed_fields
+        if pf.severity_estimate is not None:
+            max_severity = max(max_severity or 0, pf.severity_estimate)
+        if pf.injuries is not None:
+            max_injuries = max(max_injuries or 0, pf.injuries)
+        all_hazards.extend(pf.hazards or [])
+        all_agencies.extend(pf.agencies_needed or [])
+
+    unique_hazards = list(set(all_hazards))
+    unique_agencies = list(set(all_agencies))
+
+    severity_score = normalize_severity(max_severity)
+    injuries_score = normalize_injuries(max_injuries)
+    hazards_score = normalize_hazards(unique_hazards)
+    agencies_score = normalize_agencies(unique_agencies)
     confidence_score = normalize_confidence(incident.confidence)
 
     # Weighted sum

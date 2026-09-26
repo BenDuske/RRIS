@@ -1,6 +1,6 @@
 from typing import List, Optional
 from backend.models import Event, ParsedFields
-from backend.intelligence.llm_client import extract_structured_fields_with_llm
+from backend.intelligence.llm_client import llm
 
 
 # ---------------------------------------------------------------------------
@@ -67,14 +67,18 @@ def estimate_injuries(text: str) -> Optional[int]:
 def estimate_severity(text: str) -> Optional[int]:
     text_lower = text.lower()
 
-    if "minor" in text_lower:
-        return 3
-    if "moderate" in text_lower:
-        return 5
+    if "extreme" in text_lower or "mass casualty" in text_lower or "explosion" in text_lower:
+        return 10
     if "severe" in text_lower or "critical" in text_lower or "life-threatening" in text_lower:
         return 8
-    if "extreme" in text_lower:
-        return 10
+    if any(w in text_lower for w in ["fire hazard", "entrap", "second alarm", "hazmat", "fuel leak"]):
+        return 7
+    if any(w in text_lower for w in ["collision", "crash", "rollover", "injuries", "active fire"]):
+        return 6
+    if "moderate" in text_lower or any(w in text_lower for w in ["lanes blocked", "dispatched"]):
+        return 5
+    if "minor" in text_lower or "stable" in text_lower or "conscious" in text_lower:
+        return 3
 
     return None
 
@@ -132,18 +136,16 @@ def extract_parsed_fields(event: Event, use_llm: bool = True) -> ParsedFields:
         pf.key_details = text[:500]  # simple default
 
     # Optional LLM refinement
-    if use_llm:
+    if use_llm and llm.available:
         try:
-            llm_result = extract_structured_fields_with_llm(text)
-            # Safely merge LLM output into ParsedFields
-            pf.incident_type = llm_result.get("incident_type") or pf.incident_type
-            pf.injuries = llm_result.get("injuries") or pf.injuries
-            pf.hazards = llm_result.get("hazards") or pf.hazards
-            pf.agencies_needed = llm_result.get("agencies_needed") or pf.agencies_needed
-            pf.severity_estimate = llm_result.get("severity_estimate") or pf.severity_estimate
-            pf.key_details = llm_result.get("key_details") or pf.key_details
+            llm_fields = llm.extract_fields(text)
+            pf.incident_type = llm_fields.incident_type or pf.incident_type
+            pf.injuries = llm_fields.injuries if llm_fields.injuries is not None else pf.injuries
+            pf.hazards = llm_fields.hazards or pf.hazards
+            pf.agencies_needed = llm_fields.agencies_needed or pf.agencies_needed
+            pf.severity_estimate = llm_fields.severity_estimate or pf.severity_estimate
+            pf.key_details = llm_fields.key_details or pf.key_details
         except Exception:
-            # If LLM fails, we keep rule-based results
             pass
 
     return pf

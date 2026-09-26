@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from ingestion.models import ParsedFields
+from backend.models import ParsedFields
 
 logger = logging.getLogger(__name__)
 

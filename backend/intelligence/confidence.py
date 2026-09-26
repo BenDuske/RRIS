@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List
 from backend.models import Event
-from backend.intelligence.config import config
+from backend.config import config
 
 
 # ---------------------------------------------------------------------------

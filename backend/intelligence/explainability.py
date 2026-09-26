@@ -1,6 +1,6 @@
 from typing import Dict, List
 from backend.models import Event, Incident, PriorityScore
-from backend.intelligence.config import config
+from backend.config import config
 
 
 # ---------------------------------------------------------------------------
