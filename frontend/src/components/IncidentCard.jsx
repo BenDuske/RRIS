@@ -87,8 +87,13 @@ export default function IncidentCard({ incident, isSelected, onSelect, isUpdated
           <span>
             {(incident.events || []).length} source{(incident.events || []).length !== 1 ? "s" : ""}
           </span>
-          {incident.confirmed && (
+          {incident.confirmed && !incident.stale_confirmation && (
             <span style={{ color: "#16a34a", fontWeight: 600 }}>Confirmed</span>
+          )}
+          {incident.stale_confirmation && (
+            <span style={{ color: "#dc2626", fontWeight: 700 }}>
+              New evidence — AI: {incident.ai_priority}
+            </span>
           )}
         </div>
         <span>{formatTimeShort(incident.updated_at)}</span>

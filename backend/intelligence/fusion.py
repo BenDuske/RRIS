@@ -52,7 +52,26 @@ def is_temporally_close(t1: datetime, t2: datetime) -> bool:
     return delta <= config.fusion_time_threshold_s
 
 
+# Scene classes: incidents of different classes at the same spot are
+# separate events (e.g. a house fire next to a highway crash).
+_ROAD = {"Traffic Incident", "Flooding / Road Hazard", "HazMat Incident"}
+_FIRE = {"Structure Fire"}
+
+
+def types_compatible(incident_type: Optional[str], event_type: Optional[str]) -> bool:
+    if not incident_type or not event_type or incident_type == event_type:
+        return True
+    if incident_type in _ROAD and event_type in _ROAD:
+        return True
+    # A medical call is usually a consequence of the scene it is reported at
+    if "Medical Emergency" in (incident_type, event_type):
+        return True
+    return False
+
+
 def find_matching_incident(event: Event) -> Optional[Incident]:
+    """Nearest incident that is close in space and time and of a compatible type."""
+    best, best_dist = None, None
     for incident in INCIDENTS:
         if not is_spatially_close(event.location, incident.location):
             continue
@@ -61,16 +80,26 @@ def find_matching_incident(event: Event) -> Optional[Incident]:
         if ref_time and not is_temporally_close(event.timestamp, ref_time):
             continue
 
-        return incident
+        if not types_compatible(incident.incident_type, event.parsed_fields.incident_type):
+            continue
 
-    return None
+        dist = haversine_distance_m(
+            event.location.lat, event.location.lng,
+            incident.location.lat, incident.location.lng,
+        )
+        if best is None or dist < best_dist:
+            best, best_dist = incident, dist
+
+    return best
 
 
 def process_event(event: Event) -> Incident:
     global _next_id
 
     event.parsed_fields = extract_parsed_fields(event, use_llm=False)
-    event.confidence = compute_event_confidence(event, [])
+    # Blend the source's self-reported confidence with our computed score
+    reported = event.confidence
+    event.confidence = (reported + compute_event_confidence(event, [])) / 2
 
     matching = find_matching_incident(event)
     now = datetime.now(timezone.utc)
@@ -83,7 +112,7 @@ def process_event(event: Event) -> Incident:
         INCIDENT_META.setdefault(matching.id, {})["previous_priority"] = matching.priority
 
         matching.events.append(event)
-        event.confidence = compute_event_confidence(event, matching.events)
+        event.confidence = (reported + compute_event_confidence(event, matching.events)) / 2
         matching.confidence = sum(e.confidence for e in matching.events) / len(matching.events)
 
         new_type = event.parsed_fields.incident_type
@@ -94,9 +123,14 @@ def process_event(event: Event) -> Incident:
                 matching.incident_type = new_type
 
         meta = INCIDENT_META[matching.id]
+        priority_score = compute_priority_score(matching)
+        meta["ai_priority"] = priority_score.value
         if not meta.get("confirmed"):
-            priority_score = compute_priority_score(matching)
             matching.priority = priority_score.value
+        elif priority_score.value != meta.get("confirmed_ai_priority"):
+            # Human confirmed/adjusted earlier; keep their number but flag
+            # that new evidence has arrived since.
+            meta["stale_confirmation"] = True
 
         matching.updated_at = now
         return matching

@@ -38,13 +38,21 @@ export default function App() {
       ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
-      ws.onopen = () => setConnected(true);
+      ws.onopen = () => {
+        setConnected(true);
+        fetchIncidents(); // resync anything missed while offline
+      };
       ws.onclose = () => {
         setConnected(false);
         reconnectTimer = setTimeout(connect, 3000);
       };
       ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
+        let msg;
+        try {
+          msg = JSON.parse(e.data);
+        } catch {
+          return;
+        }
         if (msg.type === "reset") {
           setIncidents([]);
           setSelectedId(null);
@@ -67,7 +75,7 @@ export default function App() {
       clearTimeout(reconnectTimer);
       if (ws) ws.close();
     };
-  }, []);
+  }, [fetchIncidents]);
 
   const selected = incidents.find((i) => i.id === selectedId);
   const activeSources = new Set(

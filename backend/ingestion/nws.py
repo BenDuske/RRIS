@@ -4,8 +4,8 @@ import json
 from datetime import datetime, timezone
 
 # Import your normalizer and models
-from ingestion.normalizer import normalize_report
-from models import Event
+from backend.ingestion.normalizer import normalize_report
+from backend.models import Event
 
 logger = logging.getLogger(__name__)
 

@@ -59,6 +59,18 @@ def normalize_confidence(confidence: float | None) -> float:
     return min(1.0, max(0.0, confidence))
     
 
+# Life-safety floor: a single report of a severe event must not be buried just
+# because no injuries/hazards were itemized yet (weighted sum alone tops out
+# at 45 points for severity).
+SEVERITY_FLOOR = {8: 60, 9: 70, 10: 80}
+
+
+def severity_floor(severity: int | None) -> int:
+    if severity is None:
+        return 0
+    return SEVERITY_FLOOR.get(min(10, severity), 0) if severity >= 8 else 0
+
+
 # ---------------------------------------------------------------------------
 # 2. Compute Priority Score
 # ---------------------------------------------------------------------------
@@ -105,6 +117,9 @@ def compute_priority_score(incident: Incident) -> PriorityScore:
 
     # Convert to 0–100 scale
     final_value = int(final_score * 100)
+    floor = severity_floor(max_severity)
+    if floor > final_value:
+        final_value = floor
 
     # Breakdown for explainability
     breakdown: Dict[str, float] = {

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from datetime import datetime
 from typing import List, Optional
 
 from backend.ingestion.normalizer import normalize_report
@@ -61,6 +62,8 @@ def enrich_incident(incident) -> dict:
 
     data["confirmed"] = meta.get("confirmed", False)
     data["human_priority"] = meta.get("human_priority")
+    data["ai_priority"] = meta.get("ai_priority", incident.priority)
+    data["stale_confirmation"] = meta.get("stale_confirmation", False)
 
     timeline = []
     seen_hazards = set()
@@ -93,7 +96,7 @@ def enrich_incident(incident) -> dict:
         lims.append("Single source report")
     unconfirmed = sum(1 for e in incident.events if not e.provenance.last_confirmed)
     if unconfirmed:
-        lims.append(f"{unconfirmed} source(s) unconfirmed")
+        lims.append(f"{unconfirmed} source(s) not yet corroborated by another source")
     has_injury_gap = any(e.parsed_fields.injuries is None for e in incident.events)
     if has_injury_gap and len(incident.events) > 1:
         lims.append("Injury count not confirmed by all sources")
@@ -110,6 +113,13 @@ async def websocket_endpoint(ws: WebSocket):
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
+        pass
+    finally:
+        _drop_client(ws)
+
+
+def _drop_client(ws):
+    if ws in clients:
         clients.remove(ws)
 
 
@@ -119,7 +129,7 @@ async def broadcast_incident(incident):
         try:
             await ws.send_json(data)
         except Exception:
-            clients.remove(ws)
+            _drop_client(ws)
 
 
 @app.post("/reset")
@@ -129,13 +139,26 @@ async def reset_incidents():
         try:
             await ws.send_json({"type": "reset"})
         except Exception:
-            clients.remove(ws)
+            _drop_client(ws)
     return {"status": "ok"}
 
 
+class IngestRequest(BaseModel):
+    """Shape of a report accepted by POST /ingest."""
+    source_id: str = Field(min_length=1, max_length=100)
+    source_type: str = Field(default="manual", pattern="^(cad|nws|traffic|manual|pdf)$")
+    raw_text: str = Field(min_length=1, max_length=5000)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    address: Optional[str] = None
+    radius: int = Field(default=50, ge=1, le=50000)
+    timestamp: Optional[datetime] = None
+    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
 @app.post("/ingest")
-async def ingest_event(raw_input: dict):
-    event = normalize_report(raw_input)
+async def ingest_event(report: IngestRequest):
+    event = normalize_report(report.model_dump(exclude_none=True))
     incident = process_event(event)
     await broadcast_incident(incident)
     return {
@@ -171,12 +194,14 @@ async def confirm_incident(incident_id: int):
         raise HTTPException(status_code=404, detail="Incident not found")
     meta = INCIDENT_META.setdefault(incident_id, {})
     meta["confirmed"] = True
+    meta["confirmed_ai_priority"] = compute_priority_score(incident).value
+    meta["stale_confirmation"] = False
     await broadcast_incident(incident)
     return {"status": "confirmed", "incident_id": incident_id, "priority": incident.priority}
 
 
 class AdjustRequest(BaseModel):
-    priority: int
+    priority: int = Field(ge=0, le=100)
 
 
 @app.post("/incidents/{incident_id}/adjust")
@@ -188,6 +213,8 @@ async def adjust_incident(incident_id: int, body: AdjustRequest):
     meta["previous_priority"] = incident.priority
     meta["human_priority"] = body.priority
     meta["confirmed"] = True
-    incident.priority = max(0, min(100, body.priority))
+    meta["confirmed_ai_priority"] = compute_priority_score(incident).value
+    meta["stale_confirmation"] = False
+    incident.priority = body.priority
     await broadcast_incident(incident)
     return {"status": "adjusted", "incident_id": incident_id, "priority": incident.priority}

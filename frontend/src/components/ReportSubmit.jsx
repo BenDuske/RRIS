@@ -32,7 +32,20 @@ export default function ReportSubmit({ onSubmitted }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(report),
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      let msg = await res.text();
+      try {
+        const body = JSON.parse(msg);
+        if (Array.isArray(body.detail)) {
+          msg = body.detail
+            .map((d) => `${(d.loc || []).slice(1).join(".") || "report"}: ${d.msg}`)
+            .join("; ");
+        }
+      } catch {
+        /* keep raw text */
+      }
+      throw new Error(msg);
+    }
     return res.json();
   }
 
@@ -53,7 +66,7 @@ export default function ReportSubmit({ onSubmitted }) {
       });
       if (onSubmitted) onSubmitted(data);
     } catch (e) {
-      setStatus({ ok: false, msg: `Connection failed: ${e.message}` });
+      setStatus({ ok: false, msg: `Report rejected: ${e.message}` });
     }
   }
 

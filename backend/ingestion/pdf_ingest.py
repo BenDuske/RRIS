@@ -63,4 +63,4 @@ def ingest_pdf(path: str) -> Optional[str]:
         return cleaned
 
     except Exception as e:
-        return f"[INGEST ERROR] {e}
+        return f"[INGEST ERROR] {e}"

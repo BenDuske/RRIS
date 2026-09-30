@@ -59,6 +59,8 @@ def compute_consistency_score(event: Event, related_events: List[Event]) -> floa
     contradict = 0
 
     for e in related_events:
+        if e is event:
+            continue
         if e.parsed_fields.incident_type == event.parsed_fields.incident_type:
             support += 1
         else:
@@ -117,8 +119,10 @@ def compute_event_confidence(event: Event, related_events: List[Event]) -> float
         w["consistency"] * consistency_score
     )
 
-    # Blend provenance into final score
-    final = (final + provenance_score) / 2
+    # Blend provenance in only when there is corroborating/contradicting
+    # evidence; otherwise its neutral 0.5 just compresses every score.
+    if event.provenance.supporting_sources or event.provenance.contradicting_sources:
+        final = (final + provenance_score) / 2
 
     return max(0.0, min(1.0, final))
 
