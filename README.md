@@ -179,7 +179,7 @@ You should see the RRIS dashboard with:
 - A map of Lubbock, Texas on the right
 - "0 Active Incidents" in the sidebar
 
-If the map shows but the header says **"Disconnected"** in red — that's OK. It means the WebSocket connection didn't establish, but the app still works. The data loads via normal HTTP requests.
+If the header says **"Disconnected"** in red, the live WebSocket did not connect. Make sure you installed with `pip install -r requirements.txt` (it needs `uvicorn[standard]`, which bundles the WebSocket library) and restart the backend. The app falls back to plain HTTP loading, but you will not get live updates.
 
 ---
 
@@ -199,8 +199,8 @@ The demo simulates a multi-agency emergency: a flash flood on I-27 in Lubbock ca
    - **Report 6:** Field report — fire hazard, requesting Fire Department (fuses into Incident #2)
 
 3. After all 6 reports: you should see 2 incidents
-   - **Incident #1:** "Flooding / Road Hazard" — priority ~8 (low, single NWS source)
-   - **Incident #2:** "HazMat Incident" — priority ~80 (critical, 5 fused sources)
+   - **Incident #1:** "Flooding / Road Hazard" — priority ~41 (single NWS source)
+   - **Incident #2:** "HazMat Incident" — priority ~81 (critical, 5 fused sources)
 
 ### Exploring the Results
 
@@ -260,6 +260,23 @@ When you're done:
 
 1. Go to the terminal running the **frontend** and press `Ctrl + C`
 2. Go to the terminal running the **backend** and press `Ctrl + C`
+
+---
+
+## Testing and Evaluation
+
+From the project root (with the virtual environment active):
+
+```bash
+pip install pytest
+python -m pytest tests
+python -m tests.evaluate            # tuning set: 40 hand-labeled reports
+python -m tests.evaluate --heldout  # 15 reports never used for tuning
+```
+
+The evaluation scripts print incident-type accuracy, priority-tier agreement (exact and within one tier), under/over-prioritization counts, and injury-count accuracy. Labels are in `tests/eval_reports.py` and `tests/eval_heldout.py`.
+
+**Known limits:** the classifier is keyword-based (5 incident types plus "no type" for out-of-scope reports), so unfamiliar phrasing can be missed or under-prioritized. Incidents are held in memory by design and are cleared when the server restarts.
 
 ---
 

@@ -101,7 +101,7 @@ function PriorityBreakdown({ breakdown, priority }) {
             {data.map((entry, i) => (
               <Cell
                 key={i}
-                fill={entry.score >= 8 ? "#dc2626" : entry.score >= 5 ? "#ea580c" : "#2563eb"}
+                fill={entry.name === "Confidence" ? "#64748b" : entry.score >= 8 ? "#dc2626" : entry.score >= 5 ? "#ea580c" : "#2563eb"}
               />
             ))}
           </Bar>
@@ -156,6 +156,11 @@ function Sources({ events }) {
                 {(event.parsed_fields.agencies_needed || []).map((a, j) => (
                   <Tag key={j} label="Agency" value={a} color="#2563eb" />
                 ))}
+                <Tag
+                  label="Extracted"
+                  value={event.parsed_fields.extraction_method === "llm+rules" ? "AI + rules" : "rule-based"}
+                  color="#7c3aed"
+                />
                 {event.parsed_fields.severity_estimate != null && (
                   <Tag label="Sev" value={`${event.parsed_fields.severity_estimate}/10`} />
                 )}
@@ -179,7 +184,7 @@ function Sources({ events }) {
                 </strong>
               </span>
               <span style={{ color: confirmed ? "#16a34a" : "#ca8a04" }}>
-                {confirmed ? "Confirmed" : "Unconfirmed"}
+                {confirmed ? "Corroborated" : "Uncorroborated"}
               </span>
               {(event.provenance?.supporting_sources || []).length > 0 && (
                 <span style={{ color: "#2563eb" }}>
@@ -312,6 +317,24 @@ export default function ExplainPanel({ incident }) {
           </div>
         </div>
       </div>
+
+      {incident.stale_confirmation && (
+        <div
+          style={{
+            marginBottom: "12px",
+            padding: "8px 12px",
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: "6px",
+            fontSize: "12px",
+            color: "#b91c1c",
+            fontWeight: 600,
+          }}
+        >
+          New reports arrived after human confirmation. AI now recommends{" "}
+          {incident.ai_priority} (confirmed: {incident.priority}). Please review.
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>

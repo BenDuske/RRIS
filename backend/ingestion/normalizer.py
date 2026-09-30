@@ -49,8 +49,12 @@ def normalize_report(raw_input: dict) -> Event:
         provenance=provenance
     )
 
+    # Treat naive timestamps as UTC so comparisons with aware datetimes work
+    if event.timestamp.tzinfo is None:
+        event.timestamp = event.timestamp.replace(tzinfo=timezone.utc)
+
     return event
-  
+
 def update_provenance(event: Event, new_source: str, confirmed: bool = False):
     if confirmed:
         event.provenance.supporting_sources.append(new_source)

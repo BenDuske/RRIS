@@ -18,6 +18,7 @@ class ParsedFields(BaseModel):
     agencies_needed: List[str] = Field(default_factory=list)
     severity_estimate: Optional[int] = Field(None, ge=1, le=10)
     key_details: Optional[str] = None
+    extraction_method: str = "rule-based"  # or "llm+rules"
 
 
 class Provenance(BaseModel):
