@@ -4,12 +4,12 @@ An AI-assisted emergency incident information system that consolidates multiple 
 
 ## Overview
 
-During emergencies, personnel receive information from 911 dispatch, field reports, weather services, traffic systems, and other sources. These reports can be incomplete, duplicated, delayed, or formatted differently. RRIS combines related reports into a single incident view, classifies and scores priority using a hybrid AI approach (LLM extraction + rule-based scoring), and keeps the human decision-maker in control.
+During emergencies, personnel receive information from 911 dispatch, field reports, weather services, traffic systems, and other sources. These reports can be incomplete, duplicated, delayed, or formatted differently. RRIS combines related reports into a single incident view, classifies and scores priority using rule-based extraction and weighted scoring, and keeps the human decision-maker in control.
 
 **Key features:**
-- Incident fusion — combines related reports into unified records
-- 8-category classification (Fire, Medical, Transportation, Weather, HazMat, Infrastructure, Public Safety, Rescue)
-- Weighted priority scoring with separate severity and confidence indicators
+- Incident fusion — combines related reports into unified records (spatial + temporal + type-aware matching)
+- 5-category classification (Structure Fire, Medical Emergency, Traffic Incident, HazMat Incident, Flooding / Road Hazard)
+- Weighted priority scoring with life-safety floor and separate severity and confidence indicators
 - Explainability panel — shows *why* the system scored an incident the way it did
 - Human confirmation/adjustment — AI recommends, humans decide
 - Map-based unified incident view (Leaflet.js)
@@ -353,6 +353,12 @@ RRIS/
 │   └── vite.config.js          # Dev server config with backend proxy
 ├── Media/                      # Screenshots and demo recordings
 ├── Proposal/                   # Project proposal document
+├── tests/
+│   ├── test_demo.py            # 10 automated tests (fusion, scoring, validation)
+│   ├── evaluate.py             # Accuracy evaluation script
+│   ├── eval_reports.py         # 40 hand-labeled tuning reports
+│   ├── eval_heldout.py         # 15 held-out reports (never used for tuning)
+│   └── __init__.py
 ├── ROADMAP.md                  # Development roadmap (phases 1-5)
 ├── ARCHITECTURE.md             # System architecture document
 ├── requirements.txt            # Python dependencies

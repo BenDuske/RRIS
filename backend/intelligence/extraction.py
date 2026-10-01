@@ -136,8 +136,6 @@ def classify_incident_type(text: str) -> Optional[str]:
         return "Flooding / Road Hazard"
     if any(k in text_lower for k in HAZARD_KEYWORDS["medical"]):
         return "Medical Emergency"
-    if any(k in text_lower for k in HAZARD_KEYWORDS["traffic"]):
-        return "Traffic Incident"
 
     return None
 
